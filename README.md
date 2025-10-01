@@ -127,6 +127,24 @@ MIT © Yanai Edri
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+### 🤖 Automated Publishing
+
+This repository uses GitHub Actions for automated publishing:
+
+- **Auto-versioning**: When PRs are merged, versions are bumped automatically based on commit messages
+- **Auto-publishing**: New versions are automatically published to npm
+- **Auto-releases**: GitHub releases are created automatically
+
+See [`.github/ACTIONS_SETUP.md`](.github/ACTIONS_SETUP.md) for setup details.
+
+### Version Bump Guidelines
+
+Use these keywords in your PR title for automatic version bumping:
+
+- `feat:` or `feature:` → **minor** version bump
+- `fix:` or `patch:` → **patch** version bump  
+- `BREAKING:` or `major:` → **major** version bump
+
 ## Issues
 
 If you encounter any issues or have suggestions, please [open an issue](https://github.com/yanai101/update-ai-tools/issues).
