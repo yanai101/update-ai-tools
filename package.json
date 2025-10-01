@@ -1,6 +1,6 @@
 {
   "name": "update-ai-tools",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "CLI to update AI npm tools (Claude, Gemini, Copilot, Codex)",
   "keywords": [
     "cli",
