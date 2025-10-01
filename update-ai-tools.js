@@ -30,6 +30,47 @@ function askUser(question) {
   });
 }
 
+function getLocalPackageVersion(packageName) {
+  try {
+    const result = execSync(`npm list -g ${packageName} --depth=0 --json`, {
+      encoding: "utf8",
+      stdio: "pipe",
+    });
+    const data = JSON.parse(result);
+    return data.dependencies?.[packageName]?.version || null;
+  } catch {
+    return null;
+  }
+}
+
+function getRemotePackageVersion(packageName) {
+  try {
+    const result = execSync(`npm view ${packageName} version`, {
+      encoding: "utf8",
+      stdio: "pipe",
+    });
+    return result.trim();
+  } catch {
+    return null;
+  }
+}
+
+function compareVersions(v1, v2) {
+  if (!v1 || !v2) return false;
+
+  const parts1 = v1.split(".").map(Number);
+  const parts2 = v2.split(".").map(Number);
+
+  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+    const part1 = parts1[i] || 0;
+    const part2 = parts2[i] || 0;
+
+    if (part1 < part2) return -1;
+    if (part1 > part2) return 1;
+  }
+  return 0;
+}
+
 function isPackageInstalled(packageName) {
   const binaryName = binaries[Object.keys(packages).find((key) => packages[key] === packageName)];
   if (!binaryName) return false;
@@ -78,21 +119,51 @@ function runWithRetry(cmd, retries = 2) {
 }
 
 async function installPackagesWithConfirmation(packageList, individual = false) {
-  // Check which packages are already installed
+  console.log("🔍 Checking package versions...");
+
+  // Check which packages are already installed and need updates
   const installedPackages = [];
   const newPackages = [];
+  const upToDatePackages = [];
 
   for (const pkg of packageList) {
+    const name = Object.keys(packages).find((key) => packages[key] === pkg);
+
     if (isPackageInstalled(pkg)) {
-      installedPackages.push(pkg);
+      const localVersion = getLocalPackageVersion(pkg);
+      const remoteVersion = getRemotePackageVersion(pkg);
+
+      if (localVersion && remoteVersion) {
+        const comparison = compareVersions(localVersion, remoteVersion);
+        if (comparison < 0) {
+          console.log(`📦 ${name}: ${localVersion} → ${remoteVersion} (update available)`);
+          installedPackages.push(pkg);
+        } else {
+          console.log(`✅ ${name}: ${localVersion} (up to date)`);
+          upToDatePackages.push(pkg);
+        }
+      } else {
+        console.log(`⚠️  ${name}: Could not check version, will update`);
+        installedPackages.push(pkg);
+      }
     } else {
+      const remoteVersion = getRemotePackageVersion(pkg);
+      console.log(`📦 ${name}: not installed (latest: ${remoteVersion || "unknown"})`);
       newPackages.push(pkg);
     }
   }
 
-  // Show status
+  // Show summary
+  if (upToDatePackages.length > 0) {
+    console.log(`\n✅ Already up to date (${upToDatePackages.length} packages):`);
+    upToDatePackages.forEach((pkg) => {
+      const name = Object.keys(packages).find((key) => packages[key] === pkg);
+      console.log(`   - ${name}`);
+    });
+  }
+
   if (installedPackages.length > 0) {
-    console.log("✅ Already installed packages (will be updated):");
+    console.log(`\n🔄 Packages with updates available (${installedPackages.length} packages):`);
     installedPackages.forEach((pkg) => {
       const name = Object.keys(packages).find((key) => packages[key] === pkg);
       console.log(`   - ${name} (${pkg})`);
@@ -100,7 +171,7 @@ async function installPackagesWithConfirmation(packageList, individual = false) 
   }
 
   if (newPackages.length > 0) {
-    console.log("\n📦 New packages to install:");
+    console.log(`\n📦 New packages to install (${newPackages.length} packages):`);
     newPackages.forEach((pkg) => {
       const name = Object.keys(packages).find((key) => packages[key] === pkg);
       console.log(`   - ${name} (${pkg})`);
@@ -109,21 +180,27 @@ async function installPackagesWithConfirmation(packageList, individual = false) 
     const answer = await askUser("\n❓ Do you want to install the new packages? (y/N): ");
 
     if (answer !== "y" && answer !== "yes") {
-      console.log("❌ Installation cancelled by user.");
-      if (installedPackages.length > 0) {
-        console.log("💡 Only updating already installed packages...");
-        await installPackages(installedPackages, individual);
-      }
-      return;
+      console.log("❌ Installation of new packages cancelled by user.");
+      newPackages.length = 0; // Clear new packages array
     }
   }
 
-  // Install all approved packages
+  // Determine what to install
   const packagesToInstall = [...installedPackages, ...newPackages];
-  if (packagesToInstall.length > 0) {
+
+  if (packagesToInstall.length === 0) {
+    if (upToDatePackages.length > 0) {
+      console.log("\n🎉 All packages are up to date! No updates needed.");
+    } else {
+      console.log("\nℹ️  No packages to install or update.");
+    }
+    return;
+  }
+
+  // Show what will be updated/installed
+  if (installedPackages.length > 0 || newPackages.length > 0) {
+    console.log(`\n🚀 Processing ${packagesToInstall.length} package(s)...`);
     await installPackages(packagesToInstall, individual);
-  } else {
-    console.log("ℹ️  No packages to install.");
   }
 }
 
@@ -173,13 +250,29 @@ async function main() {
     console.log("📦 Updating all AI tools...");
     await installPackagesWithConfirmation(Object.values(packages));
   } else if (arg === "check") {
-    console.log("🔎 Installed versions:");
+    console.log("🔎 Checking installed versions and updates...");
+    console.log();
+
     for (const [name, bin] of Object.entries(binaries)) {
+      const pkg = packages[name];
       try {
         const version = execSync(`${bin} --version`, { encoding: "utf8" }).trim();
-        console.log(`${name}: ${version}`);
+        const localVersion = getLocalPackageVersion(pkg);
+        const remoteVersion = getRemotePackageVersion(pkg);
+
+        if (localVersion && remoteVersion) {
+          const comparison = compareVersions(localVersion, remoteVersion);
+          if (comparison < 0) {
+            console.log(`${name}: ${version} → ${remoteVersion} available ⬆️`);
+          } else {
+            console.log(`${name}: ${version} ✅`);
+          }
+        } else {
+          console.log(`${name}: ${version} (unable to check for updates)`);
+        }
       } catch {
-        console.log(`${name}: not installed`);
+        const remoteVersion = getRemotePackageVersion(pkg);
+        console.log(`${name}: not installed (latest: ${remoteVersion || "unknown"}) ❌`);
       }
     }
   } else if (packages[arg]) {

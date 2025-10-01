@@ -39,11 +39,13 @@ npx update-ai-tools check
 ## Features
 
 - ✅ **No installation required** - run with `npx`
+- ✅ **Smart version checking** - only updates packages when newer versions are available
+- ✅ **Version comparison** - shows local vs remote versions before updating
 - ✅ **User confirmation** - asks permission before installing new packages
 - ✅ **Smart detection** - distinguishes between updates and new installations
 - ✅ Update all AI tools at once
 - ✅ Update individual tools
-- ✅ Check installed versions
+- ✅ Check installed versions with update availability
 - ✅ **Smart error handling** - retries failed installations and falls back to individual installs
 - ✅ **Detailed feedback** - shows installation summary and failed packages
 - ✅ Simple and intuitive CLI interface
@@ -51,50 +53,60 @@ npx update-ai-tools check
 ## Examples
 
 ```bash
-# Update everything (with user confirmation for new packages)
+# Update everything (with smart version checking)
 $ npx update-ai-tools
-📦 Updating all AI tools...
-✅ Already installed packages (will be updated):
-   - claude (@anthropic-ai/claude-code)
-   - copilot (@github/copilot)
+� Checking package versions...
+�📦 claude: 1.2.0 → 1.2.3 (update available)
+✅ copilot: 3.4.5 (up to date)
+📦 gemini: not installed (latest: 2.1.0)
 
-📦 New packages to install:
+✅ Already up to date (1 packages):
+   - copilot
+
+🔄 Packages with updates available (1 packages):
+   - claude (@anthropic-ai/claude-code)
+
+📦 New packages to install (1 packages):
    - gemini (@google/gemini-cli)
-   - codex (@openai/codex)
 
 ❓ Do you want to install the new packages? (y/N): y
+
+🚀 Processing 2 package(s)...
 ✅ All packages installed successfully!
 
-# If user declines new installations
+# If everything is up to date
 $ npx update-ai-tools
-📦 Updating all AI tools...
-✅ Already installed packages (will be updated):
-   - claude (@anthropic-ai/claude-code)
+� Checking package versions...
+✅ claude: 1.2.3 (up to date)
+✅ copilot: 3.4.5 (up to date)
+✅ gemini: 2.1.0 (up to date)
 
-📦 New packages to install:
-   - gemini (@google/gemini-cli)
+✅ Already up to date (3 packages):
+   - claude
+   - copilot
+   - gemini
 
-❓ Do you want to install the new packages? (y/N): n
-❌ Installation cancelled by user.
-💡 Only updating already installed packages...
-✅ claude (@anthropic-ai/claude-code) installed successfully
+🎉 All packages are up to date! No updates needed.
 
-# Check what's installed
+# Check versions with update availability
 $ npx update-ai-tools check
-🔎 Installed versions:
-claude: 1.2.3
-gemini: not installed
-copilot: 3.4.5
-codex: not installed
+🔎 Checking installed versions and updates...
 
-# Update just Claude (will ask for confirmation if not installed)
+claude: 1.2.0 → 1.2.3 available ⬆️
+gemini: 2.0.5 → 2.1.0 available ⬆️
+copilot: 3.4.5 ✅
+codex: not installed (latest: 1.0.0) ❌
+
+# Update just Claude (will check if update is needed)
 $ npx update-ai-tools claude
 📦 Updating claude...
-📦 New packages to install:
+� Checking package versions...
+📦 claude: 1.2.0 → 1.2.3 (update available)
+
+🔄 Packages with updates available (1 packages):
    - claude (@anthropic-ai/claude-code)
 
-❓ Do you want to install the new packages? (y/N): y
-📦 Installing claude (@anthropic-ai/claude-code)...
+🚀 Processing 1 package(s)...
 ✅ claude installed successfully
 ```
 
