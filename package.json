@@ -2,8 +2,25 @@
   "name": "update-ai-tools",
   "version": "1.0.0",
   "description": "CLI to update AI npm tools (Claude, Gemini, Copilot, Codex)",
+  "keywords": ["cli", "ai", "tools", "update", "claude", "gemini", "copilot", "codex", "npm"],
+  "homepage": "https://github.com/yanai101/update-ai-tools#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yanai101/update-ai-tools.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yanai101/update-ai-tools/issues"
+  },
   "bin": {
     "update-ai-tools": "./update-ai-tools.js"
+  },
+  "files": [
+    "update-ai-tools.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=14.0.0"
   },
   "type": "module",
   "author": "Yanai Edri",
