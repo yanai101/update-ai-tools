@@ -1,38 +1,32 @@
 # update-ai-tools
 
-A simple CLI tool to update AI npm tools (Claude, Gemini, Copilot, Codex) with a single command.
-
-## Installation
-
-Install globally via npm:
-
-```bash
-npm install -g update-ai-tools
-```
+A simple CLI tool to update AI npm tools (Claude, Gemini, Copilot, Codex) with a single command. **No installation required** - just use `npx`!
 
 ## Usage
+
+Run directly with `npx` - no global installation needed:
 
 ### Update all AI tools
 
 ```bash
-update-ai-tools
+npx update-ai-tools
 # or
-update-ai-tools all
+npx update-ai-tools all
 ```
 
 ### Update specific tools
 
 ```bash
-update-ai-tools claude
-update-ai-tools gemini
-update-ai-tools copilot
-update-ai-tools codex
+npx update-ai-tools claude
+npx update-ai-tools gemini
+npx update-ai-tools copilot
+npx update-ai-tools codex
 ```
 
 ### Check installed versions
 
 ```bash
-update-ai-tools check
+npx update-ai-tools check
 ```
 
 ## Supported Tools
@@ -44,6 +38,7 @@ update-ai-tools check
 
 ## Features
 
+- ✅ **No installation required** - run with `npx`
 - ✅ Update all AI tools at once
 - ✅ Update individual tools
 - ✅ Check installed versions
@@ -54,12 +49,12 @@ update-ai-tools check
 
 ```bash
 # Update everything
-$ update-ai-tools
+$ npx update-ai-tools
 📦 Updating all AI tools...
 ➡️  npm install -g @anthropic-ai/claude-code @google/gemini-cli @github/copilot @openai/codex
 
 # Check what's installed
-$ update-ai-tools check
+$ npx update-ai-tools check
 🔎 Installed versions:
 claude: 1.2.3
 gemini: 2.1.0
@@ -67,7 +62,7 @@ copilot: 3.4.5
 codex: not installed
 
 # Update just Claude
-$ update-ai-tools claude
+$ npx update-ai-tools claude
 📦 Updating claude...
 ➡️  npm install -g @anthropic-ai/claude-code
 ```
@@ -75,7 +70,7 @@ $ update-ai-tools claude
 ## Requirements
 
 - Node.js (ES modules support)
-- npm
+- npm (comes with Node.js)
 
 ## License
 
