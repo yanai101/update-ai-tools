@@ -1,0 +1,11 @@
+{
+  "name": "update-ai-tools",
+  "version": "1.0.0",
+  "description": "CLI to update AI npm tools (Claude, Gemini, Copilot, Codex)",
+  "bin": {
+    "update-ai-tools": "./update-ai-tools.js"
+  },
+  "type": "module",
+  "author": "Yanai Edri",
+  "license": "MIT"
+}
