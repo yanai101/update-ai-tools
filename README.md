@@ -39,32 +39,63 @@ npx update-ai-tools check
 ## Features
 
 - ✅ **No installation required** - run with `npx`
+- ✅ **User confirmation** - asks permission before installing new packages
+- ✅ **Smart detection** - distinguishes between updates and new installations
 - ✅ Update all AI tools at once
 - ✅ Update individual tools
 - ✅ Check installed versions
+- ✅ **Smart error handling** - retries failed installations and falls back to individual installs
+- ✅ **Detailed feedback** - shows installation summary and failed packages
 - ✅ Simple and intuitive CLI interface
-- ✅ Error handling with clear feedback
 
 ## Examples
 
 ```bash
-# Update everything
+# Update everything (with user confirmation for new packages)
 $ npx update-ai-tools
 📦 Updating all AI tools...
-➡️  npm install -g @anthropic-ai/claude-code @google/gemini-cli @github/copilot @openai/codex
+✅ Already installed packages (will be updated):
+   - claude (@anthropic-ai/claude-code)
+   - copilot (@github/copilot)
+
+📦 New packages to install:
+   - gemini (@google/gemini-cli)
+   - codex (@openai/codex)
+
+❓ Do you want to install the new packages? (y/N): y
+✅ All packages installed successfully!
+
+# If user declines new installations
+$ npx update-ai-tools
+📦 Updating all AI tools...
+✅ Already installed packages (will be updated):
+   - claude (@anthropic-ai/claude-code)
+
+📦 New packages to install:
+   - gemini (@google/gemini-cli)
+
+❓ Do you want to install the new packages? (y/N): n
+❌ Installation cancelled by user.
+💡 Only updating already installed packages...
+✅ claude (@anthropic-ai/claude-code) installed successfully
 
 # Check what's installed
 $ npx update-ai-tools check
 🔎 Installed versions:
 claude: 1.2.3
-gemini: 2.1.0
+gemini: not installed
 copilot: 3.4.5
 codex: not installed
 
-# Update just Claude
+# Update just Claude (will ask for confirmation if not installed)
 $ npx update-ai-tools claude
 📦 Updating claude...
-➡️  npm install -g @anthropic-ai/claude-code
+📦 New packages to install:
+   - claude (@anthropic-ai/claude-code)
+
+❓ Do you want to install the new packages? (y/N): y
+📦 Installing claude (@anthropic-ai/claude-code)...
+✅ claude installed successfully
 ```
 
 ## Requirements
