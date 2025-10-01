@@ -246,6 +246,15 @@ async function installPackages(packageList, individual = false) {
 const arg = process.argv[2] || "all";
 
 async function main() {
+  console.log(`
+ _     ____  ____  ____ _____ _____      ____  _      _____ ____  ____  _     ____ 
+/ \\ /\\/  __\\/  _ \\/  _ Y__ __Y  __/     /  _ \\/ \\    /__ __Y  _ \\/  _ \\/ \\   / ___\\
+| | |||  \\/|| | \\|| / \\| / \\ |  \\ _____ | / \\|| |_____ / \\ | / \\|| / \\|| |   |    \\
+| \\_/||  __/| |_/|| |-|| | | |  /_\\____\\| |-||| |\\____\\| | | \\_/|| \\_/|| |_/\\\\___ |
+\\____/\\_/   \\____/\\_/ \\| \\_/ \\____\\     \\_/ \\|\\_/      \\_/ \\____/\\____/\\____/\\____/
+`);
+  console.log();
+
   if (arg === "all") {
     console.log("📦 Updating all AI tools...");
     await installPackagesWithConfirmation(Object.values(packages));
