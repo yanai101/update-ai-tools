@@ -12,7 +12,7 @@ const packages = {
 const binaries = {
   claude: "claude",
   gemini: "gemini",
-  copilot: "github-copilot",
+  copilot: "copilot",
   codex: "codex",
 };
 
