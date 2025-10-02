@@ -71,6 +71,21 @@ function compareVersions(v1, v2) {
   return 0;
 }
 
+function getBinaryVersion(binaryName) {
+  try {
+    const output = execSync(`${binaryName} --version`, { encoding: "utf8" }).trim();
+
+    // Handle copilot which returns multiple lines
+    if (binaryName === "copilot") {
+      return output.split("\n")[0]; // Return only the first line (version number)
+    }
+
+    return output;
+  } catch {
+    return null;
+  }
+}
+
 function isPackageInstalled(packageName) {
   const binaryName = binaries[Object.keys(packages).find((key) => packages[key] === packageName)];
   if (!binaryName) return false;
@@ -99,20 +114,83 @@ function run(cmd, allowFailure = false) {
   }
 }
 
+function isCacheError(error) {
+  const errorString = error.toString();
+  return (
+    errorString.includes("ENOENT") ||
+    errorString.includes("ENOTEMPTY") ||
+    errorString.includes("_cacache") ||
+    errorString.includes("git-clone") ||
+    (errorString.includes("package.json") && errorString.includes("tmp"))
+  );
+}
+
+function isNetworkError(error) {
+  const errorString = error.toString();
+  return errorString.includes("ENOTFOUND") || errorString.includes("ECONNRESET") || errorString.includes("ETIMEDOUT") || errorString.includes("network");
+}
+
+function getErrorType(error) {
+  if (isCacheError(error)) return "cache";
+  if (isNetworkError(error)) return "network";
+  return "unknown";
+}
+
+function clearNpmCache() {
+  try {
+    console.log("🧹 Clearing npm cache...");
+    execSync("npm cache clean --force", { stdio: "pipe" });
+    console.log("✅ npm cache cleared");
+    return true;
+  } catch (err) {
+    console.log("⚠️  Failed to clear npm cache, continuing anyway...");
+    return false;
+  }
+}
+
 function runWithRetry(cmd, retries = 2) {
+  let cacheCleared = false;
+
   for (let i = 0; i <= retries; i++) {
     try {
       console.log(`➡️  ${cmd}${i > 0 ? ` (retry ${i})` : ""}`);
       execSync(cmd, { stdio: "inherit" });
       return true;
     } catch (err) {
+      const errorType = getErrorType(err);
+
       if (i === retries) {
         console.error(`❌ Failed after ${retries + 1} attempts: ${cmd}`);
+
+        // Provide specific error guidance
+        if (errorType === "cache") {
+          console.log("💡 This appears to be an npm cache issue. You can try:");
+          console.log("   npm cache clean --force");
+          console.log("   Then run the command again");
+        } else if (errorType === "network") {
+          console.log("💡 This appears to be a network issue. You can try:");
+          console.log("   Check your internet connection");
+          console.log("   Try again later");
+        }
         return false;
       } else {
-        console.log(`⚠️  Attempt ${i + 1} failed, retrying...`);
-        // Wait a bit before retry using synchronous sleep
-        execSync("sleep 1", { stdio: "ignore" });
+        console.log(`⚠️  Attempt ${i + 1} failed (${errorType} error)`);
+
+        // Handle different error types
+        if (errorType === "cache" && !cacheCleared) {
+          console.log("🧹 Detected npm cache error, clearing cache before retry...");
+          if (clearNpmCache()) {
+            cacheCleared = true;
+            // Don't wait after cache clear, retry immediately
+            continue;
+          }
+        } else if (errorType === "network") {
+          console.log("🌐 Network error detected, waiting longer before retry...");
+          execSync("sleep 5", { stdio: "ignore" });
+        } else {
+          console.log("⏳ Waiting before retry...");
+          execSync("sleep 2", { stdio: "ignore" });
+        }
       }
     }
   }
@@ -218,16 +296,23 @@ async function installPackages(packageList, individual = false) {
   // Install packages individually
   let successCount = 0;
   let failedPackages = [];
+  let cacheErrorsFound = false;
 
   for (const pkg of packageList) {
     const name = Object.keys(packages).find((key) => packages[key] === pkg) || pkg;
     console.log(`\n📦 Installing ${name} (${pkg})...`);
+
     if (runWithRetry(`npm install -g ${pkg}`, 2)) {
       console.log(`✅ ${name} installed successfully`);
       successCount++;
     } else {
       console.log(`❌ ${name} failed to install`);
-      failedPackages.push(pkg);
+      failedPackages.push({ pkg, name });
+
+      // Check if we encountered cache errors
+      if (!cacheErrorsFound) {
+        cacheErrorsFound = true;
+      }
     }
   }
 
@@ -235,11 +320,24 @@ async function installPackages(packageList, individual = false) {
   console.log(`✅ Successfully installed: ${successCount}/${packageList.length} packages`);
 
   if (failedPackages.length > 0) {
-    console.log(`❌ Failed packages: ${failedPackages.join(", ")}`);
-    console.log(`\n💡 Try running these manually:`);
-    failedPackages.forEach((pkg) => {
-      console.log(`   npm install -g ${pkg}`);
+    console.log(`❌ Failed packages: ${failedPackages.map((f) => f.name).join(", ")}`);
+
+    if (cacheErrorsFound) {
+      console.log(`\n🔧 Troubleshooting failed installations:`);
+      console.log(`   1. Clear npm cache: npm cache clean --force`);
+      console.log(`   2. Clear npm global cache: rm -rf ~/.npm`);
+      console.log(`   3. Try installing manually:`);
+    } else {
+      console.log(`\n💡 Try running these manually:`);
+    }
+
+    failedPackages.forEach(({ pkg, name }) => {
+      console.log(`   npm install -g ${pkg}  # ${name}`);
     });
+
+    if (successCount > 0) {
+      console.log(`\n✨ Good news: ${successCount} package(s) were installed successfully!`);
+    }
   }
 }
 
@@ -264,8 +362,9 @@ async function main() {
 
     for (const [name, bin] of Object.entries(binaries)) {
       const pkg = packages[name];
-      try {
-        const version = execSync(`${bin} --version`, { encoding: "utf8" }).trim();
+      const version = getBinaryVersion(bin);
+
+      if (version) {
         const localVersion = getLocalPackageVersion(pkg);
         const remoteVersion = getRemotePackageVersion(pkg);
 
@@ -279,7 +378,7 @@ async function main() {
         } else {
           console.log(`${name}: ${version} (unable to check for updates)`);
         }
-      } catch {
+      } else {
         const remoteVersion = getRemotePackageVersion(pkg);
         console.log(`${name}: not installed (latest: ${remoteVersion || "unknown"}) ❌`);
       }
