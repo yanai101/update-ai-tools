@@ -1,6 +1,6 @@
 # update-ai-tools
 
-A simple CLI tool to update AI npm tools (Claude, Gemini, Copilot, Codex) with a single command. **No installation required** - just use `npx`!
+A simple CLI tool to update AI npm tools (Claude, Gemini, Copilot, Codex, Kilo Code) with a single command. **No installation required** - just use `npx`!
 
 ## Usage
 
@@ -21,6 +21,7 @@ npx update-ai-tools claude
 npx update-ai-tools gemini
 npx update-ai-tools copilot
 npx update-ai-tools codex
+npx update-ai-tools kilocode
 ```
 
 ### Check installed versions
@@ -35,6 +36,7 @@ npx update-ai-tools check
 - **Gemini** - `@google/gemini-cli`
 - **Copilot** - `@github/copilot`
 - **Codex** - `@openai/codex`
+- **Kilo Code** - `@kilocode/cli`
 
 ## Features
 

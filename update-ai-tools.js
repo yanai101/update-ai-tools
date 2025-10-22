@@ -7,6 +7,7 @@ const packages = {
   gemini: "@google/gemini-cli",
   copilot: "@github/copilot",
   codex: "@openai/codex",
+  kilocode: "@kilocode/cli",
 };
 
 const binaries = {
@@ -14,6 +15,7 @@ const binaries = {
   gemini: "gemini",
   copilot: "copilot",
   codex: "codex",
+  kilocode: "kilocode",
 };
 
 function askUser(question) {
@@ -87,12 +89,25 @@ function getBinaryVersion(binaryName) {
 }
 
 function isPackageInstalled(packageName) {
-  const binaryName = binaries[Object.keys(packages).find((key) => packages[key] === packageName)];
-  if (!binaryName) return false;
+  const nameKey = Object.keys(packages).find((key) => packages[key] === packageName);
+  const binaryName = binaries[nameKey];
+
+  if (binaryName) {
+    try {
+      execSync(`${binaryName} --version`, { encoding: "utf8", stdio: "ignore" });
+      return true;
+    } catch {
+      // Fall back to npm list check below
+    }
+  }
 
   try {
-    execSync(`${binaryName} --version`, { encoding: "utf8", stdio: "ignore" });
-    return true;
+    const result = execSync(`npm list -g ${packageName} --depth=0 --json`, {
+      encoding: "utf8",
+      stdio: "pipe",
+    });
+    const data = JSON.parse(result);
+    return Boolean(data.dependencies?.[packageName]);
   } catch {
     return false;
   }
@@ -362,21 +377,22 @@ async function main() {
 
     for (const [name, bin] of Object.entries(binaries)) {
       const pkg = packages[name];
-      const version = getBinaryVersion(bin);
+      const binaryVersion = getBinaryVersion(bin);
+      const localVersion = getLocalPackageVersion(pkg);
+      const displayVersion = binaryVersion || localVersion;
 
-      if (version) {
-        const localVersion = getLocalPackageVersion(pkg);
+      if (displayVersion) {
         const remoteVersion = getRemotePackageVersion(pkg);
 
         if (localVersion && remoteVersion) {
           const comparison = compareVersions(localVersion, remoteVersion);
           if (comparison < 0) {
-            console.log(`${name}: ${version} → ${remoteVersion} available ⬆️`);
+            console.log(`${name}: ${displayVersion} → ${remoteVersion} available ⬆️`);
           } else {
-            console.log(`${name}: ${version} ✅`);
+            console.log(`${name}: ${displayVersion} ✅`);
           }
         } else {
-          console.log(`${name}: ${version} (unable to check for updates)`);
+          console.log(`${name}: ${displayVersion} (unable to check for updates)`);
         }
       } else {
         const remoteVersion = getRemotePackageVersion(pkg);
@@ -387,13 +403,14 @@ async function main() {
     console.log(`📦 Updating ${arg}...`);
     await installPackagesWithConfirmation([packages[arg]], true);
   } else {
-    console.log("Usage: update-ai-tools [all|claude|gemini|copilot|codex|check]");
+    console.log("Usage: update-ai-tools [all|claude|gemini|copilot|codex|kilocode|check]");
     console.log("\nOptions:");
     console.log("  all     - Update all AI tools (with confirmation for new installs)");
     console.log("  claude  - Update Claude CLI only");
     console.log("  gemini  - Update Gemini CLI only");
     console.log("  copilot - Update GitHub Copilot CLI only");
     console.log("  codex   - Update Codex CLI only");
+    console.log("  kilocode - Update Kilo Code CLI only");
     console.log("  check   - Check installed versions");
     process.exit(1);
   }
