@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { execSync } from "node:child_process";
+import { existsSync, readdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import { createInterface } from "node:readline";
 
 const packages = {
@@ -17,6 +19,73 @@ const binaries = {
   codex: "codex",
   kilocode: "kilocode",
 };
+
+let globalNodeModulesDir = null;
+
+function getGlobalNodeModulesDir() {
+  if (globalNodeModulesDir) return globalNodeModulesDir;
+
+  try {
+    globalNodeModulesDir = execSync("npm root -g", {
+      encoding: "utf8",
+      stdio: "pipe",
+    })
+      .trim()
+      .replace(/\n/g, "");
+  } catch {
+    globalNodeModulesDir = null;
+  }
+
+  return globalNodeModulesDir;
+}
+
+function removeGeminiInstallDir() {
+  const baseDir = getGlobalNodeModulesDir();
+
+  if (!baseDir) {
+    return false;
+  }
+
+  const geminiDir = join(baseDir, "@google", "gemini-cli");
+  const geminiNamespaceDir = join(baseDir, "@google");
+
+  if (!existsSync(geminiDir)) {
+    try {
+      if (existsSync(geminiNamespaceDir)) {
+        const staleDirs = readdirSync(geminiNamespaceDir).filter((entry) =>
+          entry.startsWith(".gemini-cli")
+        );
+
+        staleDirs.forEach((entry) => {
+          const dirPath = join(geminiNamespaceDir, entry);
+          rmSync(dirPath, { recursive: true, force: true });
+        });
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  try {
+    rmSync(geminiDir, { recursive: true, force: true });
+
+    if (existsSync(geminiNamespaceDir)) {
+      const staleDirs = readdirSync(geminiNamespaceDir).filter((entry) =>
+        entry.startsWith(".gemini-cli")
+      );
+
+      staleDirs.forEach((entry) => {
+        const dirPath = join(geminiNamespaceDir, entry);
+        rmSync(dirPath, { recursive: true, force: true });
+      });
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function askUser(question) {
   const rl = createInterface({
@@ -163,7 +232,7 @@ function clearNpmCache() {
   }
 }
 
-function runWithRetry(cmd, retries = 2) {
+function runWithRetry(cmd, retries = 2, options = {}) {
   let cacheCleared = false;
 
   for (let i = 0; i <= retries; i++) {
@@ -172,7 +241,30 @@ function runWithRetry(cmd, retries = 2) {
       execSync(cmd, { stdio: "inherit" });
       return true;
     } catch (err) {
-      const errorType = getErrorType(err);
+      let errorType = getErrorType(err);
+
+      if (typeof options.onError === "function") {
+        try {
+          const result = options.onError(err, {
+            attempt: i,
+            retries,
+            cmd,
+            errorType,
+          });
+
+          if (result && typeof result === "object") {
+            if (result.errorTypeOverride) {
+              errorType = result.errorTypeOverride;
+            }
+
+            if (result.retryImmediately) {
+              continue;
+            }
+          }
+        } catch (hookError) {
+          console.log("⚠️  onError hook failed:", hookError.message || hookError);
+        }
+      }
 
       if (i === retries) {
         console.error(`❌ Failed after ${retries + 1} attempts: ${cmd}`);
@@ -315,9 +407,39 @@ async function installPackages(packageList, individual = false) {
 
   for (const pkg of packageList) {
     const name = Object.keys(packages).find((key) => packages[key] === pkg) || pkg;
+    const isGemini = pkg === packages.gemini;
+    let geminiCleanupAttempted = false;
     console.log(`\n📦 Installing ${name} (${pkg})...`);
 
-    if (runWithRetry(`npm install -g ${pkg}`, 2)) {
+    const installSucceeded = runWithRetry(`npm install -g ${pkg}`, 2, {
+      onError: (error) => {
+        if (!isGemini || geminiCleanupAttempted) {
+          return null;
+        }
+
+        const message = typeof error?.toString === "function" ? error.toString() : "";
+
+        if (message.includes("ENOTEMPTY") && message.includes("@google/gemini-cli")) {
+          geminiCleanupAttempted = true;
+          console.log(
+            "🧹 Detected existing Gemini CLI install directory, removing before retry..."
+          );
+
+          if (removeGeminiInstallDir()) {
+            console.log("✅ Removed existing Gemini CLI directory. Retrying installation...");
+            return { retryImmediately: true };
+          }
+
+          console.log(
+            "⚠️  Automatic cleanup failed. You may need to close running processes and try again."
+          );
+        }
+
+        return null;
+      },
+    });
+
+    if (installSucceeded) {
       console.log(`✅ ${name} installed successfully`);
       successCount++;
     } else {
