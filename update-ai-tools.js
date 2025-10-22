@@ -52,9 +52,7 @@ function removeGeminiInstallDir() {
   if (!existsSync(geminiDir)) {
     try {
       if (existsSync(geminiNamespaceDir)) {
-        const staleDirs = readdirSync(geminiNamespaceDir).filter((entry) =>
-          entry.startsWith(".gemini-cli")
-        );
+        const staleDirs = readdirSync(geminiNamespaceDir).filter((entry) => entry.startsWith(".gemini-cli"));
 
         staleDirs.forEach((entry) => {
           const dirPath = join(geminiNamespaceDir, entry);
@@ -71,9 +69,7 @@ function removeGeminiInstallDir() {
     rmSync(geminiDir, { recursive: true, force: true });
 
     if (existsSync(geminiNamespaceDir)) {
-      const staleDirs = readdirSync(geminiNamespaceDir).filter((entry) =>
-        entry.startsWith(".gemini-cli")
-      );
+      const staleDirs = readdirSync(geminiNamespaceDir).filter((entry) => entry.startsWith(".gemini-cli"));
 
       staleDirs.forEach((entry) => {
         const dirPath = join(geminiNamespaceDir, entry);
@@ -144,7 +140,7 @@ function compareVersions(v1, v2) {
 
 function getBinaryVersion(binaryName) {
   try {
-    const output = execSync(`${binaryName} --version`, { encoding: "utf8" }).trim();
+    const output = execSync(`${binaryName} --version`, { encoding: "utf8", stdio: "pipe" }).trim();
 
     // Handle copilot which returns multiple lines
     if (binaryName === "copilot") {
@@ -421,18 +417,14 @@ async function installPackages(packageList, individual = false) {
 
         if (message.includes("ENOTEMPTY") && message.includes("@google/gemini-cli")) {
           geminiCleanupAttempted = true;
-          console.log(
-            "🧹 Detected existing Gemini CLI install directory, removing before retry..."
-          );
+          console.log("🧹 Detected existing Gemini CLI install directory, removing before retry...");
 
           if (removeGeminiInstallDir()) {
             console.log("✅ Removed existing Gemini CLI directory. Retrying installation...");
             return { retryImmediately: true };
           }
 
-          console.log(
-            "⚠️  Automatic cleanup failed. You may need to close running processes and try again."
-          );
+          console.log("⚠️  Automatic cleanup failed. You may need to close running processes and try again.");
         }
 
         return null;
