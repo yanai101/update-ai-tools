@@ -1,7 +1,7 @@
 {
   "name": "update-ai-tools",
   "version": "1.3.0",
-  "description": "CLI to update AI npm tools (Claude, Gemini, Copilot, Codex)",
+  "description": "CLI to update AI npm tools (Claude, Gemini, Copilot, Codex, Kilo Code)",
   "keywords": [
     "cli",
     "ai",
@@ -11,7 +11,8 @@
     "gemini",
     "copilot",
     "codex",
-    "npm"
+    "npm",
+    "kilocode"
   ],
   "homepage": "https://github.com/yanai101/update-ai-tools#readme",
   "repository": {
