@@ -1,12 +1,9 @@
 #!/usr/bin/env node
 import { execSync } from "node:child_process";
-import { existsSync, readdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { createInterface } from "node:readline";
 
 const packages = {
   claude: "@anthropic-ai/claude-code",
-  gemini: "@google/gemini-cli",
   copilot: "@github/copilot",
   codex: "@openai/codex",
   kilocode: "@kilocode/cli",
@@ -14,74 +11,19 @@ const packages = {
 
 const binaries = {
   claude: "claude",
-  gemini: "gemini",
   copilot: "copilot",
   codex: "codex",
   kilocode: "kilocode",
 };
 
-let globalNodeModulesDir = null;
-
-function getGlobalNodeModulesDir() {
-  if (globalNodeModulesDir) return globalNodeModulesDir;
-
-  try {
-    globalNodeModulesDir = execSync("npm root -g", {
-      encoding: "utf8",
-      stdio: "pipe",
-    })
-      .trim()
-      .replace(/\n/g, "");
-  } catch {
-    globalNodeModulesDir = null;
-  }
-
-  return globalNodeModulesDir;
-}
-
-function removeGeminiInstallDir() {
-  const baseDir = getGlobalNodeModulesDir();
-
-  if (!baseDir) {
-    return false;
-  }
-
-  const geminiDir = join(baseDir, "@google", "gemini-cli");
-  const geminiNamespaceDir = join(baseDir, "@google");
-
-  if (!existsSync(geminiDir)) {
-    try {
-      if (existsSync(geminiNamespaceDir)) {
-        const staleDirs = readdirSync(geminiNamespaceDir).filter((entry) => entry.startsWith(".gemini-cli"));
-
-        staleDirs.forEach((entry) => {
-          const dirPath = join(geminiNamespaceDir, entry);
-          rmSync(dirPath, { recursive: true, force: true });
-        });
-      }
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  try {
-    rmSync(geminiDir, { recursive: true, force: true });
-
-    if (existsSync(geminiNamespaceDir)) {
-      const staleDirs = readdirSync(geminiNamespaceDir).filter((entry) => entry.startsWith(".gemini-cli"));
-
-      staleDirs.forEach((entry) => {
-        const dirPath = join(geminiNamespaceDir, entry);
-        rmSync(dirPath, { recursive: true, force: true });
-      });
-    }
-
-    return true;
-  } catch {
-    return false;
-  }
-}
+const unsupportedTools = {
+  gemini: {
+    binary: "gemini",
+    packageName: "@google/gemini-cli",
+    message:
+      "Gemini CLI is no longer supported because Google removed @google/gemini-cli and changed the tool. The new Google tool is not supported yet. Recommended: uninstall @google/gemini-cli.",
+  },
+};
 
 function askUser(question) {
   const rl = createInterface({
@@ -150,6 +92,35 @@ function getBinaryVersion(binaryName) {
     return output;
   } catch {
     return null;
+  }
+}
+
+function printUnsupportedToolWarning(name) {
+  const tool = unsupportedTools[name];
+
+  if (!tool) return false;
+
+  const binaryVersion = getBinaryVersion(tool.binary);
+  const localVersion = getLocalPackageVersion(tool.packageName);
+  const displayVersion = binaryVersion || localVersion;
+
+  if (displayVersion) {
+    console.log(`⚠️  ${name}: ${displayVersion} detected. ${tool.message}`);
+    console.log(`   npm uninstall -g ${tool.packageName}`);
+    return true;
+  }
+
+  console.log(`⚠️  ${name}: unsupported. ${tool.message}`);
+  return true;
+}
+
+function printDetectedUnsupportedToolWarnings() {
+  for (const name of Object.keys(unsupportedTools)) {
+    const tool = unsupportedTools[name];
+
+    if (getBinaryVersion(tool.binary) || getLocalPackageVersion(tool.packageName)) {
+      printUnsupportedToolWarning(name);
+    }
   }
 }
 
@@ -403,33 +374,9 @@ async function installPackages(packageList, individual = false) {
 
   for (const pkg of packageList) {
     const name = Object.keys(packages).find((key) => packages[key] === pkg) || pkg;
-    const isGemini = pkg === packages.gemini;
-    let geminiCleanupAttempted = false;
     console.log(`\n📦 Installing ${name} (${pkg})...`);
 
-    const installSucceeded = runWithRetry(`npm install -g ${pkg}`, 2, {
-      onError: (error) => {
-        if (!isGemini || geminiCleanupAttempted) {
-          return null;
-        }
-
-        const message = typeof error?.toString === "function" ? error.toString() : "";
-
-        if (message.includes("ENOTEMPTY") && message.includes("@google/gemini-cli")) {
-          geminiCleanupAttempted = true;
-          console.log("🧹 Detected existing Gemini CLI install directory, removing before retry...");
-
-          if (removeGeminiInstallDir()) {
-            console.log("✅ Removed existing Gemini CLI directory. Retrying installation...");
-            return { retryImmediately: true };
-          }
-
-          console.log("⚠️  Automatic cleanup failed. You may need to close running processes and try again.");
-        }
-
-        return null;
-      },
-    });
+    const installSucceeded = runWithRetry(`npm install -g ${pkg}`, 2);
 
     if (installSucceeded) {
       console.log(`✅ ${name} installed successfully`);
@@ -472,6 +419,17 @@ async function installPackages(packageList, individual = false) {
 
 const arg = process.argv[2] || "all";
 
+function printUsage() {
+  console.log("Usage: update-ai-tools [all|claude|copilot|codex|kilocode|check]");
+  console.log("\nOptions:");
+  console.log("  all      - Update all AI tools (with confirmation for new installs)");
+  console.log("  claude   - Update Claude CLI only");
+  console.log("  copilot  - Update GitHub Copilot CLI only");
+  console.log("  codex    - Update Codex CLI only");
+  console.log("  kilocode - Update Kilo Code CLI only");
+  console.log("  check    - Check installed versions");
+}
+
 async function main() {
   console.log(`
  _     ____  ____  ____ _____ _____      ____  _      _____ ____  ____  _     ____ 
@@ -482,8 +440,11 @@ async function main() {
 `);
   console.log();
 
-  if (arg === "all") {
+  if (arg === "--help" || arg === "-h" || arg === "help") {
+    printUsage();
+  } else if (arg === "all") {
     console.log("📦 Updating all AI tools...");
+    printDetectedUnsupportedToolWarnings();
     await installPackagesWithConfirmation(Object.values(packages));
   } else if (arg === "check") {
     console.log("🔎 Checking installed versions and updates...");
@@ -513,19 +474,14 @@ async function main() {
         console.log(`${name}: not installed (latest: ${remoteVersion || "unknown"}) ❌`);
       }
     }
+    printDetectedUnsupportedToolWarnings();
   } else if (packages[arg]) {
     console.log(`📦 Updating ${arg}...`);
     await installPackagesWithConfirmation([packages[arg]], true);
+  } else if (unsupportedTools[arg]) {
+    printUnsupportedToolWarning(arg);
   } else {
-    console.log("Usage: update-ai-tools [all|claude|gemini|copilot|codex|kilocode|check]");
-    console.log("\nOptions:");
-    console.log("  all     - Update all AI tools (with confirmation for new installs)");
-    console.log("  claude  - Update Claude CLI only");
-    console.log("  gemini  - Update Gemini CLI only");
-    console.log("  copilot - Update GitHub Copilot CLI only");
-    console.log("  codex   - Update Codex CLI only");
-    console.log("  kilocode - Update Kilo Code CLI only");
-    console.log("  check   - Check installed versions");
+    printUsage();
     process.exit(1);
   }
 }
