@@ -22,7 +22,7 @@
     "url": "https://github.com/yanai101/update-ai-tools/issues"
   },
   "bin": {
-    "update-ai-tools": "./update-ai-tools.js"
+    "update-ai-tools": "update-ai-tools.js"
   },
   "scripts": {
     "test": "node update-ai-tools.js --help && node update-ai-tools.js check",
